@@ -8,36 +8,38 @@ import {
   Vec3,
   macro,
   math,
+  CCFloat,
 } from "cc";
 import { CharacterMovement, ICharacterMovement } from "./CharacterMovement";
 import { FIXED_DELTA_TIME } from "../Constants";
+import { numberMoveTowards } from "../Utils";
 const { ccclass, property } = _decorator;
 
 @ccclass("CharacterAnimator")
 export class CharacterAnimator extends Component {
-  @property({ type: Animation })
+  @property({ type: Animation, visible: true })
   private _anim: Animation = null;
 
-  @property
+  @property({ type: CharacterMovement, visible: true })
   public _characterMovement: ICharacterMovement = null;
-  private _rb: RigidBody2D = null;
-  private _grounded: boolean = false;
+  //   private _rb: RigidBody2D = null;
 
   private static readonly GroundedKey = "Grounded";
   private static readonly IsMovingKey = "IsMoving";
   private static readonly VYKey = "vy";
 
-  private _maxIdleSpeed: number = 2;
+  @property({ type: CCFloat, visible: true })
   private _maxTilt: number = 5;
+  @property({ type: CCFloat, visible: true })
   private _tiltSpeed: number = 20;
+  private _accumulator: number = 0;
 
   onLoad() {
-    this._characterMovement = this.getComponent(CharacterMovement);
-    this._rb = this.getComponent(RigidBody2D);
+    this._characterMovement = this.node.parent.getComponent(CharacterMovement);
+    // this._rb = this.node.parent.getComponent(RigidBody2D);
   }
 
   onEnable() {
-    this._characterMovement = this.getComponent(CharacterMovement);
     this._characterMovement.DashedCallbacks.add(this.OnDashed);
   }
 
@@ -48,6 +50,15 @@ export class CharacterAnimator extends Component {
   update(deltaTime: number) {
     if (this._characterMovement == null) return;
 
+    this._accumulator += deltaTime;
+
+    if (this._accumulator >= FIXED_DELTA_TIME) {
+      this.fixedUpdate();
+      this._accumulator -= FIXED_DELTA_TIME;
+    }
+  }
+
+  fixedUpdate() {
     // this.HandleSpriteFlip();
     this.HandleMovingHorizontal();
     this.HandleMovingVertical();
@@ -71,21 +82,18 @@ export class CharacterAnimator extends Component {
   }
 
   private HandleCharacterTilt() {
-    const runningTilt = this._grounded
-      ? math.Quat.fromEuler(
-          new math.Quat(),
-          0,
-          0,
-          this._maxTilt * this._characterMovement.FrameInput.x
+    let frameInput = this._characterMovement.FrameMoveInput;
+
+    this.node.setRotationFromEuler(
+      new Vec3(
+        this.node.eulerAngles.x,
+        frameInput.x > 0 ? 0 : frameInput.x < 0 ? 180 : this.node.eulerAngles.y,
+        numberMoveTowards(
+          this.node.eulerAngles.z,
+          this._maxTilt * frameInput.y,
+          120 * FIXED_DELTA_TIME
         )
-      : math.Quat.IDENTITY;
-    const up = new Vec3(0, 1, 0);
-    math.Vec3.transformQuat(up, up, runningTilt);
-    math.Vec3.rotateZ(
-      this._anim.node.up,
-      this._anim.node.up,
-      up,
-      this._tiltSpeed * FIXED_DELTA_TIME
+      )
     );
   }
 
