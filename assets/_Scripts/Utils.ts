@@ -29,3 +29,7 @@ export function reflect(inVector: Vec2, normal: Vec2) {
   const dotProduct = inVector.dot(normal);
   return inVector.subtract(normal.multiplyScalar(2 * dotProduct));
 }
+
+export function getRandomBetween(a: number, b: number) {
+  return Math.random() * (b - a) + a;
+}

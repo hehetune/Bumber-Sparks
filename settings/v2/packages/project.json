@@ -5,5 +5,23 @@
       "width": 1920,
       "height": 1080
     }
-  }
+  },
+  "layer": [
+    {
+      "name": "Player",
+      "value": 1
+    },
+    {
+      "name": "BounceBar",
+      "value": 2
+    },
+    {
+      "name": "DeathWall",
+      "value": 4
+    },
+    {
+      "name": "Effect",
+      "value": 8
+    }
+  ]
 }

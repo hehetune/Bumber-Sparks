@@ -12,11 +12,14 @@ import {
   Contact2DType,
   IPhysics2DContact,
   PhysicsSystem2D,
+  Layers,
 } from "cc";
 import { ScriptableStats } from "./ScriptableStats";
 import { FIXED_DELTA_TIME } from "../Constants";
 import { numberMoveTowards, reflect } from "../Utils";
 import { FrameInput } from "./FrameInput";
+import { BounceBar } from "../GameLogic/BounceBar";
+import { CharacterHealth } from "./CharacterHealth";
 const { ccclass, property } = _decorator;
 
 @ccclass("CharacterMovement")
@@ -25,13 +28,14 @@ export class CharacterMovement extends Component implements ICharacterMovement {
   // player stats
   @property({ type: ScriptableStats, visible: true })
   protected _stats: ScriptableStats = null;
+  @property({ type: CharacterHealth, visible: true })
+  protected _health: CharacterHealth = null;
 
   // components
   protected _rb: RigidBody2D = null;
   protected _col: Collider2D = null;
 
   // inputs
-  private _pressedKeys: Set<number> = new Set();
   @property({ type: FrameInput, visible: true })
   protected _frameInput: FrameInput = new FrameInput();
   @property({ type: Vec2, visible: true })
@@ -40,8 +44,10 @@ export class CharacterMovement extends Component implements ICharacterMovement {
   protected _timeDashWasPressed: number = -999;
   @property({ type: CCBoolean, visible: true })
   protected _dashConsume: boolean = false;
-  @property({ type: Vec2, visible: true })
-  public FrameMoveInput: Vec2 = this?._frameInput?.move;
+  //   @property({ type: Vec2, visible: true })
+  public FrameInput() {
+    return this._frameInput;
+  }
 
   // time variables
   @property({ type: CCFloat, visible: true })
@@ -50,10 +56,8 @@ export class CharacterMovement extends Component implements ICharacterMovement {
   private _accumulator: number = 0;
 
   // dash
-  protected _dashedCallbacks: Set<() => void> = null;
+  protected _dashedCallbacks: Set<() => void> = new Set<() => void>();
   public get DashedCallbacks(): Set<() => void> {
-    if (this._dashedCallbacks == null)
-      this._dashedCallbacks = new Set<() => void>();
     return this._dashedCallbacks;
   }
 
@@ -66,12 +70,11 @@ export class CharacterMovement extends Component implements ICharacterMovement {
   onLoad() {
     this._rb = this.getComponent(RigidBody2D);
     this._col = this.getComponent(Collider2D);
+    this._stats = this.getComponent(ScriptableStats);
+    this._health = this.getComponent(CharacterHealth);
   }
 
   start() {
-    input.on(Input.EventType.KEY_DOWN, this.onKeyDown, this);
-    input.on(Input.EventType.KEY_UP, this.onKeyUp, this);
-
     const rigidBody = this.getComponent(RigidBody2D);
     rigidBody.bullet = true;
 
@@ -115,22 +118,34 @@ export class CharacterMovement extends Component implements ICharacterMovement {
     otherCollider: Collider2D,
     contact: IPhysics2DContact
   ) {
-    console.log("Begin Contact with", otherCollider.node.name);
-    // Lấy điểm va chạm
-    const worldManifold = contact.getWorldManifold();
-    const points = worldManifold.points;
+    let isPlayer =
+      otherCollider.node.layer == Math.pow(2, Layers.nameToLayer("Player"));
+    let isBounceBar =
+      otherCollider.node.layer == Math.pow(2, Layers.nameToLayer("BounceBar"));
+    let isDeathWall =
+      otherCollider.node.layer == Math.pow(2, Layers.nameToLayer("DeathWall"));
 
-    if (points.length > 0) {
-      //   const collisionPoint = new Vec3(points[0].x, points[0].y, 0);
-      //   console.log("Collision Point:", collisionPoint);
+    let bouncePower = 0;
 
-      // Lấy vector pháp tuyến
-      const normal = worldManifold.normal;
-      console.log("Collision Normal:", normal);
-
-      // Tính toán vector phản lực
-      this.calculateBounce(normal);
+    if (isPlayer) {
+      let player = otherCollider.node.getComponent(CharacterMovement);
+      if (player.HasBufferedDash())
+        bouncePower = this._stats.bouncePowerWithPlayerEnhance;
+      else bouncePower = this._stats.bouncePowerWithPlayer;
     }
+    if (isBounceBar) {
+      let bar = otherCollider.node.getComponent(BounceBar);
+      bar.HideBar();
+      bouncePower = this._stats.bouncePowerWithBounceBar;
+    }
+    if (isDeathWall) {
+      bouncePower = this._stats.bouncePowerWithDeathWall;
+      // receive damage
+      this._health.takeDamage(1);
+    }
+
+    const worldManifold = contact.getWorldManifold();
+    this.calculateBounce(worldManifold.normal, bouncePower);
   }
 
   onEndContact(
@@ -161,8 +176,6 @@ export class CharacterMovement extends Component implements ICharacterMovement {
   update(deltaTime: number) {
     this._time += deltaTime;
 
-    this.updateFrameInput();
-
     this._accumulator += deltaTime;
 
     if (this._accumulator >= FIXED_DELTA_TIME) {
@@ -171,49 +184,13 @@ export class CharacterMovement extends Component implements ICharacterMovement {
     }
   }
 
-  private updateFrameInput() {
-    this._frameInput.move.x = 0;
-    this._frameInput.move.y = 0;
-    this._frameInput.dash = false;
-
-    if (
-      this._pressedKeys.has(KeyCode.ARROW_LEFT) ||
-      this._pressedKeys.has(KeyCode.KEY_A)
-    ) {
-      this._frameInput.move.x = -1;
-    }
-    if (
-      this._pressedKeys.has(KeyCode.ARROW_RIGHT) ||
-      this._pressedKeys.has(KeyCode.KEY_D)
-    ) {
-      this._frameInput.move.x = 1;
-    }
-    if (
-      this._pressedKeys.has(KeyCode.ARROW_UP) ||
-      this._pressedKeys.has(KeyCode.KEY_W)
-    ) {
-      this._frameInput.move.y = 1;
-    }
-    if (
-      this._pressedKeys.has(KeyCode.ARROW_DOWN) ||
-      this._pressedKeys.has(KeyCode.KEY_S)
-    ) {
-      this._frameInput.move.y = -1;
-    }
-    if (this._pressedKeys.has(KeyCode.SPACE)) {
-      this._frameInput.dash = true;
-    }
+  public updateFrameInput(x: number, y: number, dash: boolean) {
+    this._frameInput.move.x = x;
+    this._frameInput.move.y = y;
+    this._frameInput.dash = dash;
   }
 
-  public onKeyDown(event: { keyCode: any }) {
-    this._pressedKeys.add(event.keyCode);
-  }
-
-  public onKeyUp(event: { keyCode: any }) {
-    this._pressedKeys.delete(event.keyCode);
-  }
-
-  private canInput = () => !this.hasBounceBuffer();
+  private canInput = () => !this.HasBufferedBounce();
 
   fixedUpdate() {
     if (this.canInput()) {
@@ -226,28 +203,26 @@ export class CharacterMovement extends Component implements ICharacterMovement {
   // #endregion
 
   // #region dash
-  private HasBufferedDash = (): boolean =>
+  public HasBufferedDash = (): boolean =>
     this._time < this._timeDashWasPressed + this._stats.dashBuffer;
 
+  private HasDashCooldown = (): boolean =>
+    this._time < this._timeDashWasPressed + this._stats.dashCooldown;
+
   private handleDash() {
-    if (this._frameInput.dash && !this.HasBufferedDash()) {
+    if (this._frameInput.dash && !this.HasDashCooldown()) {
       this._timeDashWasPressed = this._time;
       this._dashConsume = true;
       this.executeDash();
     }
-    // if (!this._dashConsume || !this.HasBufferedDash()) return;
   }
 
   private executeDash() {
     this._dashConsume = false;
     this._frameVelocity.x =
-      Math.sign(this._frameVelocity.x) *
-      this._stats.maxSpeed *
-      this._stats.dashPower;
+      Math.sign(this._frameVelocity.x) * this._stats.dashPower;
     this._frameVelocity.y =
-      Math.sign(this._frameVelocity.y) *
-      this._stats.maxSpeed *
-      this._stats.dashPower;
+      Math.sign(this._frameVelocity.y) * this._stats.dashPower;
     if (this.DashedCallbacks) this.DashedCallbacks.forEach((f) => f());
   }
   // #endregion
@@ -298,22 +273,23 @@ export class CharacterMovement extends Component implements ICharacterMovement {
   // #endregion
 
   // #region bounce
-  public bounceToDirection(direction: Vec2) {
-    this._frameVelocity = direction.multiplyScalar(this._stats.bouncePower);
+  public bounceToDirection(direction: Vec2, power: number) {
+    this._frameVelocity = direction.multiplyScalar(power);
     this._timeStartBounce = this._time;
   }
 
-  private hasBounceBuffer = () =>
+  private HasBufferedBounce = () =>
     this._time < this._timeStartBounce + this._stats.bounceBuffer;
 
-  private calculateBounce(normalVec: Vec2) {
+  private calculateBounce(normalVec: Vec2, power: number) {
     const bounceVelocity = reflect(this._rb.linearVelocity, normalVec);
-    this.bounceToDirection(bounceVelocity.normalize());
+    this.bounceToDirection(bounceVelocity.normalize(), power);
   }
   // #endregion
 }
 
 export interface ICharacterMovement {
   DashedCallbacks: Set<() => void>;
-  FrameMoveInput: Vec2;
+  FrameInput: () => FrameInput;
+  HasBufferedDash: () => Boolean;
 }

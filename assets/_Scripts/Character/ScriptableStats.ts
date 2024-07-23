@@ -1,9 +1,9 @@
-import { _decorator, CCFloat } from 'cc';
+import { _decorator, CCFloat, Component } from 'cc';
 
 const { ccclass, property } = _decorator;
 
 @ccclass('ScriptableStats')
-export class ScriptableStats {
+export class ScriptableStats extends Component {
     @property({ type: CCFloat, visible: true })
     public dashPower: number = 0;
 
@@ -20,10 +20,25 @@ export class ScriptableStats {
     public dashBuffer: number = 0;
 
     @property({ type: CCFloat, visible: true })
+    public dashCooldown: number = 0;
+
+    @property({ type: CCFloat, visible: true })
     public bounceBuffer: number = 0;
 
     @property({ type: CCFloat, visible: true })
-    public bouncePower: number = 0;
+    public bouncePowerWithPlayer: number = 0;
+
+    @property({ type: CCFloat, visible: true })
+    public bouncePowerWithPlayerEnhance: number = 0;
+
+    @property({ type: CCFloat, visible: true })
+    public bouncePowerWithBounceBar: number = 0;
+
+    @property({ type: CCFloat, visible: true })
+    public bouncePowerWithDeathWall: number = 0;
+    
+    @property({ type: CCFloat, visible: true })
+    public health: number = 0;
 
     // @property({ type: CCFloat, visible: true })
     // public fallAcceleration: number = 0;
