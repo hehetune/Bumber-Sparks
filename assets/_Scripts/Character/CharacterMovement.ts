@@ -16,7 +16,7 @@ import {
 } from "cc";
 import { ScriptableStats } from "./ScriptableStats";
 import { FIXED_DELTA_TIME } from "../Constants";
-import { numberMoveTowards, reflect } from "../Utils";
+import { numberMoveTowards, reflect } from "../Utils/Utils";
 import { FrameInput } from "./FrameInput";
 import { BounceBar } from "../GameLogic/BounceBar";
 import { CharacterHealth } from "./CharacterHealth";
@@ -206,7 +206,7 @@ export class CharacterMovement extends Component implements ICharacterMovement {
   public HasBufferedDash = (): boolean =>
     this._time < this._timeDashWasPressed + this._stats.dashBuffer;
 
-  private HasDashCooldown = (): boolean =>
+  public HasDashCooldown = (): boolean =>
     this._time < this._timeDashWasPressed + this._stats.dashCooldown;
 
   private handleDash() {
@@ -269,6 +269,12 @@ export class CharacterMovement extends Component implements ICharacterMovement {
 
   private applyMovement() {
     this._rb.linearVelocity = this._frameVelocity;
+  }
+
+  public forceUpdateVelocity(x: number, y: number)
+  {
+    this._frameVelocity.x = x;
+    this._frameVelocity.y = y;
   }
   // #endregion
 

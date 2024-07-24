@@ -1,7 +1,7 @@
 import { _decorator, Component, Vec3, CCFloat, animation } from "cc";
 import { CharacterMovement, ICharacterMovement } from "./CharacterMovement";
 import { FIXED_DELTA_TIME } from "../Constants";
-import { numberMoveTowards } from "../Utils";
+import { numberMoveTowards } from "../Utils/Utils";
 import { CharacterHealth } from "./CharacterHealth";
 const { ccclass, property } = _decorator;
 

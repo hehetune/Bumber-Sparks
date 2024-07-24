@@ -1,6 +1,14 @@
-import { _decorator, CCFloat, Component, Node, Vec3 } from "cc";
+import {
+  _decorator,
+  CCFloat,
+  Component,
+  Node,
+  RigidBody2D,
+  Vec2,
+  Vec3,
+} from "cc";
 import { CharacterMovement } from "./CharacterMovement";
-import { getRandomBetween } from "../Utils";
+import { getRandomBetween } from "../Utils/Utils";
 import { GameManager } from "../GameManager";
 const { ccclass, property } = _decorator;
 
@@ -36,24 +44,47 @@ export class AIController extends Component {
   }
 
   protected doAttack() {
-    let minDistance = 999999;
+    let minDistance = Number.MAX_VALUE;
     let targetPlayer: Node = null;
+
+    // Find the closest player
     GameManager.Instance.players.forEach((p) => {
-      let distance = Vec3.distance(this.node.position, p.position);
-      if (minDistance >= distance) {
-        targetPlayer = p;
-        minDistance = distance;
+      if (p.active && p !== this.node) {
+        const distance = Vec3.distance(this.node.position, p.position);
+        if (distance < minDistance) {
+          minDistance = distance;
+          targetPlayer = p;
+        }
       }
     });
 
-    let attackDir: Vec3 = new Vec3();
-    console.log(targetPlayer.name);
-    Vec3.subtract(attackDir, targetPlayer.position, this.node.position);
-    console.log(targetPlayer.position);
+    if (!targetPlayer) {
+      return; // No target found, exit the function
+    }
+
+    // Calculate attack direction
+    const attackDir: Vec3 = new Vec3();
+    const targetPoint: Vec3 = new Vec3(targetPlayer.position);
+    const velocity: Vec2 = new Vec2(
+      targetPlayer.getComponent(RigidBody2D).linearVelocity
+    );
+    if (velocity.x > 1 || velocity.y > 1) {
+      velocity.normalize();
+      velocity.multiplyScalar(75);
+      targetPoint.x += velocity.x;
+      targetPoint.y += velocity.y;
+    }
+    Vec3.subtract(attackDir, targetPoint, this.node.position);
     attackDir.normalize();
 
-    this._characterMovement.updateFrameInput(attackDir.x, attackDir.y, true);
+    // Perform the attack
+    if (!this._characterMovement.HasDashCooldown()) {
+      this._characterMovement.forceUpdateVelocity(attackDir.x, attackDir.y);
+      this._characterMovement.updateFrameInput(attackDir.x, attackDir.y, true);
+    } else
+      this._characterMovement.updateFrameInput(attackDir.x, attackDir.y, false);
 
+    // Set action cooldown
     this._currentActionCooldown = getRandomBetween(
       this._actionCooldown - this._actionCooldownDiff,
       this._actionCooldown + this._actionCooldownDiff

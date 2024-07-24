@@ -51,8 +51,8 @@
     },
     "_lpos": {
       "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
+      "x": -570,
+      "y": 290,
       "z": 0
     },
     "_lrot": {
@@ -377,7 +377,7 @@
     "awakeOnLoad": true,
     "_group": 1,
     "_type": 2,
-    "_allowSleep": true,
+    "_allowSleep": false,
     "_gravityScale": 0,
     "_linearDamping": 0,
     "_angularDamping": 0,
@@ -439,9 +439,9 @@
     "dashPower": 45,
     "maxSpeed": 15,
     "acceleration": 40,
-    "airDeceleration": 40,
-    "dashBuffer": 0.25,
-    "dashCooldown": 1,
+    "airDeceleration": 20,
+    "dashBuffer": 0.15,
+    "dashCooldown": 3,
     "bounceBuffer": 0.25,
     "bouncePowerWithPlayer": 15,
     "bouncePowerWithPlayerEnhance": 25,
@@ -485,6 +485,7 @@
     "asset": {
       "__id__": 0
     },
-    "fileId": "84h3zC5f9PHLS6Ncl+aBPF"
+    "fileId": "84h3zC5f9PHLS6Ncl+aBPF",
+    "targetOverrides": null
   }
 ]
